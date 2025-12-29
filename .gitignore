@@ -1,3 +1,5 @@
+/assets/font-awesome
 /vendor
 .env
+.htaccess
 *.log
