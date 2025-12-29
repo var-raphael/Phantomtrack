@@ -1,0 +1,17 @@
+:root {
+  --bg: #1C0A0E;
+  --text: #FFF1F2;
+  --accent1: #F43F5E;
+  --accent2: #FB7185;
+  --card: rgba(50, 20, 28, 0.5);
+  --border: rgba(244, 63, 94, 0.2);
+  --hover: rgba(244, 63, 94, 0.1);
+}
+
+[data-theme="light"] {
+  --bg: #FFF1F2;
+  --text: #881337;
+  --card: rgba(255, 255, 255, 0.8);
+  --border: rgba(251, 113, 133, 0.3);
+  --hover: rgba(244, 63, 94, 0.05);
+}

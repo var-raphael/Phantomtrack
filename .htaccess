@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# Remove .php extension
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^(.+)$ $1.php [L]
+
+# Redirect .php URLs to extension-less URLs
+RewriteCond %{THE_REQUEST} ^GET\ /[^?\s]+\.php
+RewriteRule ^(.+)\.php$ /$1 [R=301,L]
+
+# Force trailing slash removal (optional)
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)/$ /$1 [R=301,L]
