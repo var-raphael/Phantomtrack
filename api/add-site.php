@@ -210,10 +210,10 @@ switch ($type) {
 				addBtn.textContent = 'Adding...';
 				
 				const trackId = generateTrackId();
-				const scriptTag = '<script src="phantom.js?trackid=' + trackId + '"><\/script>';
+				const scriptTag = '<script src="https://phantomtrack-cdn.vercel.app/phantom.v1.0.0.js?trackid=' + trackId + '"><\/script>';
 				
 				// Use /api/process to stay in the api folder
-				fetch('/phantomtrack/api/process', {
+				fetch('api/process', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/x-www-form-urlencoded',

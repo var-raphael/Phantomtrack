@@ -74,6 +74,7 @@ if ($secretKeyToValidate) {
 }
 
 $website_id = $_SESSION['website_id'] ?? null;
+$url = env('PHANTOMTRACK_URL');
 include "header.php";
 ?>
 <body data-theme="dark">

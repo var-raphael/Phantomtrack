@@ -1,5 +1,4 @@
-
-  <style>
+<style>
 
     .sk-modal {
       display: none;
@@ -343,7 +342,7 @@
       // *** SPACE FOR QUERY INSERTION ***
       // You can add additional query parameters here
       // Example: currentDashboardLink = `dashboard?secretkey=${currentSecretKey}&referrer=modal&timestamp=${Date.now()}`;
-      currentDashboardLink = `dashboard?secretkey=${currentSecretKey}`;
+      currentDashboardLink = `<?php echo $url; ?>/dashboard?secretkey=${currentSecretKey}`;
       // *** END QUERY INSERTION SPACE ***
       
       dashboardLinkDisplay.textContent = currentDashboardLink;
@@ -451,4 +450,3 @@
     }
   </script>
 </body>
-

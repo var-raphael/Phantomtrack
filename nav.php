@@ -69,14 +69,14 @@
     </li>
     
     <li class="nav-item">
-      <a href="documentation" class="nav-link">
+      <a href="https://phantomtrack-docs.vercel.app/docs" class="nav-link">
         <i class="fas fa-book-open"></i>
         <span>Documentations</span>
       </a>
     </li>
     
     <li class="nav-item">
-      <a href="hire-me" class="nav-link">
+      <a href="https://phantomtrack-docs.vercel.app/docs/hire-me.html" class="nav-link">
         <i class="fas fa-laptop-code"></i>
         <span>Hire Me</span>
       </a>

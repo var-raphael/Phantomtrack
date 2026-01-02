@@ -28,7 +28,7 @@ $end_date = $_GET['end_date'] ?? date('Y-m-d');
     <title>Export Analytics - Phantom Track</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/export.css">
-    <link rel="stylesheet" href="assets/font-awesome/icons/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"/>
 </head>
 <body data-theme="dark">
 
