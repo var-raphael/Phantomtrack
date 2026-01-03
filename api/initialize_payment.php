@@ -193,9 +193,9 @@ if ($planInfo['type'] === 'subscription') {
 
 
 $planCodes = [
-    'pro' => 'PLN_awhy79fchvijdve',
-    'premium' => 'PLN_q686x60nouviiph', 
-    'enterprise' => 'PLN_4d9q7fzcaz489k5'
+    'pro' => 'PLN_f5nxa4otkg38yx9',
+    'premium' => 'PLN_dqz60791zuwu2w0', 
+    'enterprise' => 'PLN_db02y7a5gjhwo7l'
 ];
 
 $planCode = $planCodes[$plan] ?? '';
