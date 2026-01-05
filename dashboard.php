@@ -23,47 +23,131 @@ if ($secretKeyToValidate) {
         $_SESSION['user_id'] = $user['user_id'];
         $_SESSION['secret_key'] = $user['secret_key'];
         
-        // Set website_id
-        if (isset($_GET['website_id'])) {
-            $_SESSION['website_id'] = $_GET['website_id'];
-        } elseif (!isset($_SESSION['website_id'])) {
-            // Only set if not already set
-            $website = fetchOne("SELECT website_id FROM website WHERE user_id = ? ORDER BY created_at ASC LIMIT 1", [$user['user_id']]);
-            $_SESSION['website_id'] = $website['website_id'] ?? null;
-        }
-        
+        $user_id = $user['user_id'];
         $hasSecretKey = true;
         $currentSecretKey = $secretKeyToValidate;
-        $user_id = $user['user_id'];
         
-        // Save cookie if secret key came from URL
+        // Check if website_id is in URL
+        if (isset($_GET['website_id'])) {
+            $requestedWebsiteId = $_GET['website_id'];
+            
+            // Validate this website_id belongs to the user
+            $websiteCheck = fetchOne(
+                "SELECT website_id FROM website WHERE website_id = ? AND user_id = ?", 
+                [$requestedWebsiteId, $user_id]
+            );
+            
+            if ($websiteCheck) {
+                // Valid website_id - set it in session
+                $_SESSION['website_id'] = $requestedWebsiteId;
+            } else {
+                // Invalid website_id - get their first website and redirect
+                $defaultWebsite = fetchOne(
+                    "SELECT website_id FROM website WHERE user_id = ? ORDER BY created_at ASC LIMIT 1", 
+                    [$user_id]
+                );
+                
+                if ($defaultWebsite) {
+                    $_SESSION['website_id'] = $defaultWebsite['website_id'];
+                    
+                    // Build redirect URL with correct website_id
+                    $urlParts = parse_url($_SERVER['REQUEST_URI']);
+                    $basePath = $urlParts['path'];
+                    $queryParams = [];
+                    
+                    if (isset($urlParts['query'])) {
+                        parse_str($urlParts['query'], $queryParams);
+                    }
+                    
+                    $queryParams['website_id'] = $defaultWebsite['website_id'];
+                    unset($queryParams['secretkey']); // Remove secretkey if present
+                    
+                    header("Location: " . $basePath . '?' . http_build_query($queryParams));
+                    exit;
+                } else {
+                    // User has no websites - let them through to create one
+                    $_SESSION['website_id'] = null;
+                }
+            }
+        } else {
+            // NO website_id in URL - try to redirect with website_id
+            
+            // Try to use session website_id first (if valid)
+            if (isset($_SESSION['website_id'])) {
+                $sessionWebsiteCheck = fetchOne(
+                    "SELECT website_id FROM website WHERE website_id = ? AND user_id = ?", 
+                    [$_SESSION['website_id'], $user_id]
+                );
+                
+                if ($sessionWebsiteCheck) {
+                    // Session website_id is valid - redirect with it
+                    $redirectWebsiteId = $_SESSION['website_id'];
+                } else {
+                    // Session website_id invalid - get default
+                    $defaultWebsite = fetchOne(
+                        "SELECT website_id FROM website WHERE user_id = ? ORDER BY created_at ASC LIMIT 1", 
+                        [$user_id]
+                    );
+                    $redirectWebsiteId = $defaultWebsite['website_id'] ?? null;
+                    $_SESSION['website_id'] = $redirectWebsiteId;
+                }
+            } else {
+                // No session website_id - get default
+                $defaultWebsite = fetchOne(
+                    "SELECT website_id FROM website WHERE user_id = ? ORDER BY created_at ASC LIMIT 1", 
+                    [$user_id]
+                );
+                $redirectWebsiteId = $defaultWebsite['website_id'] ?? null;
+                $_SESSION['website_id'] = $redirectWebsiteId;
+            }
+            
+            // Only redirect if user has websites
+            if ($redirectWebsiteId) {
+                $urlParts = parse_url($_SERVER['REQUEST_URI']);
+                $basePath = $urlParts['path'];
+                $queryParams = [];
+                
+                if (isset($urlParts['query'])) {
+                    parse_str($urlParts['query'], $queryParams);
+                }
+                
+                $queryParams['website_id'] = $redirectWebsiteId;
+                unset($queryParams['secretkey']); // Remove secretkey if present
+                
+                header("Location: " . $basePath . '?' . http_build_query($queryParams));
+                exit;
+            }
+            // If $redirectWebsiteId is null, user has no websites - just let them through
+        }
+        
+        // Handle secretkey in URL - clean redirect
         if ($secretKeyFromURL) {
             setcookie(COOKIE_NAME, $secretKeyFromURL, time() + COOKIE_EXPIRY, '/', '', isset($_SERVER['HTTPS']), true);
             
-            // Build clean redirect URL without secretkey but WITH website_id
             $urlParts = parse_url($_SERVER['REQUEST_URI']);
             $basePath = $urlParts['path'];
             $queryParams = [];
             
-            // Parse existing query params
             if (isset($urlParts['query'])) {
                 parse_str($urlParts['query'], $queryParams);
             }
             
-            // Remove secretkey from params
             unset($queryParams['secretkey']);
             
-            // Ensure website_id is in the URL
+            // Only add website_id if user has one
             if ($_SESSION['website_id']) {
                 $queryParams['website_id'] = $_SESSION['website_id'];
             }
             
-            // Build redirect URL
-            $redirectUrl = $basePath . '?' . http_build_query($queryParams);
+            $redirectUrl = $basePath;
+            if (!empty($queryParams)) {
+                $redirectUrl .= '?' . http_build_query($queryParams);
+            }
             
             header("Location: " . $redirectUrl);
             exit;
         }
+        
     } else {
         session_unset();
         $autoOpenModal = true;

@@ -8,10 +8,7 @@
     <link rel="stylesheet" href="assets/css/embed-style.css">
     <link rel="stylesheet" href="assets/css/embed-dashboard.css">
     <link rel="stylesheet" href="assets/css/modal.css">
-    <link rel="stylesheet" href="assets/font-awesome/icons/css/all.min.css">
-    <link rel="stylesheet" href="assets/font-awesome/icons/css/fontawesome.min.css">
-    <link rel="stylesheet" href="assets/font-awesome/icons/css/brands.min.css">
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"/>
     <script>
   (function() {
     const savedTheme = localStorage.getItem('theme') || 'dark';

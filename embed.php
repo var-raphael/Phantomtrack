@@ -1,129 +1,145 @@
-<?php 
+<?php
+// MUST be before session_start()
+session_set_cookie_params([
+    'samesite' => 'None',
+    'secure' => true,
+    'httponly' => true
+]);
+
 session_start();
 include "includes/functions.php";
 
-if(isset($_GET["track_id"])) {
-	$track_id = clean($_GET["track_id"]);
- 
- $checkTrackId = fetchOne("SELECT website_id FROM website WHERE track_id = ?", [$track_id]);
- 
- if($checkTrackId){
-    $_SESSION["website_id"] = $checkTrackId["website_id"];
-} else {
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Error</title>
-        <style>
-            body {
-                margin: 0;
-                padding: 0;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                min-height: 100vh;
-            }
-            .error-container {
-                background: white;
-                padding: 40px 50px;
-                border-radius: 12px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                text-align: center;
-                max-width: 400px;
-            }
-            .error-icon {
-                font-size: 48px;
-                color: #ef4444;
-                margin-bottom: 20px;
-            }
-            h1 {
-                color: #1f2937;
-                font-size: 24px;
-                margin: 0 0 10px 0;
-            }
-            p {
-                color: #6b7280;
-                font-size: 16px;
-                margin: 0;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="error-container">
-            <div class="error-icon">⚠️</div>
-            <h1>Track ID Not Recognized</h1>
-            <p>The tracking ID you provided could not be found in our system.</p>
-        </div>
-    </body>
-    </html>
-    <?php
-    exit;
+// If session is not set, we need to set it
+if(!isset($_SESSION["website_id"])) {
+    
+    // Check if track_id is provided
+    if(!isset($_GET["track_id"])) {
+        ?>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Error</title>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                }
+                .error-container {
+                    background: white;
+                    padding: 40px 50px;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    text-align: center;
+                    max-width: 400px;
+                }
+                .error-icon {
+                    font-size: 48px;
+                    color: #ef4444;
+                    margin-bottom: 20px;
+                }
+                h1 {
+                    color: #1f2937;
+                    font-size: 24px;
+                    margin: 0 0 10px 0;
+                }
+                p {
+                    color: #6b7280;
+                    font-size: 16px;
+                    margin: 0;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="error-container">
+                <div class="error-icon">❌</div>
+                <h1>Track ID Not Found</h1>
+                <p>No tracking ID was provided in the request.</p>
+            </div>
+        </body>
+        </html>
+        <?php
+        exit;
+    }
+    
+    // track_id is provided, check if it's valid
+    $track_id = $_GET["track_id"];
+    $checkTrackId = fetchOne("SELECT website_id FROM website WHERE track_id = ?", [$track_id]);
+    
+    if($checkTrackId){
+        $_SESSION["website_id"] = $checkTrackId["website_id"];
+    } else {
+        ?>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Error</title>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                }
+                .error-container {
+                    background: white;
+                    padding: 40px 50px;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    text-align: center;
+                    max-width: 400px;
+                }
+                .error-icon {
+                    font-size: 48px;
+                    color: #ef4444;
+                    margin-bottom: 20px;
+                }
+                h1 {
+                    color: #1f2937;
+                    font-size: 24px;
+                    margin: 0 0 10px 0;
+                }
+                p {
+                    color: #6b7280;
+                    font-size: 16px;
+                    margin: 0;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="error-container">
+                <div class="error-icon">⚠️</div>
+                <h1>Track ID Not Recognized</h1>
+                <p>The tracking ID you provided could not be found in our system.</p>
+            </div>
+        </body>
+        </html>
+        <?php
+        exit;
+    }
 }
-} else {
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Error</title>
-        <style>
-            body {
-                margin: 0;
-                padding: 0;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                min-height: 100vh;
-            }
-            .error-container {
-                background: white;
-                padding: 40px 50px;
-                border-radius: 12px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                text-align: center;
-                max-width: 400px;
-            }
-            .error-icon {
-                font-size: 48px;
-                color: #ef4444;
-                margin-bottom: 20px;
-            }
-            h1 {
-                color: #1f2937;
-                font-size: 24px;
-                margin: 0 0 10px 0;
-            }
-            p {
-                color: #6b7280;
-                font-size: 16px;
-                margin: 0;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="error-container">
-            <div class="error-icon">❌</div>
-            <h1>Track ID Not Found</h1>
-            <p>No tracking ID was provided in the request.</p>
-        </div>
-    </body>
-    </html>
-    <?php
-    exit;
-}
+
+// If we reach here, $_SESSION["website_id"] is set (either from session or just set above)
+
 if(isset($_GET["theme"])) {
-$theme = clean($_GET["theme"]);
-}else{
-$theme = "blue";
+    $theme = clean($_GET["theme"]);
+} else {
+    $theme = "blue";
 }
+
 include "embed-header.php";
 ?>
 <body data-theme="dark">
@@ -153,7 +169,7 @@ include "embed-header.php";
           <!-- Top Referrers -->
           
           <?php include "top-referrer.php"; ?>
-       
+    
           
           <!-- Country Breakdown -->
          <?php include "country-tier.php"; ?>
