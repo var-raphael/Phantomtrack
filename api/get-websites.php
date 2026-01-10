@@ -9,6 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
+$current_website_id = $_SESSION['website_id'] ?? null;
 
 // Fetch all websites for this user
 $websites = fetchAll(
@@ -36,20 +37,38 @@ foreach ($websites as $website) {
         $displayName = substr($displayName, 0, 20) . '...';
     }
     
-    echo '<li style="padding: 8px 0;">
+    // Check if this is the active website
+    $isActive = ($current_website_id && $current_website_id == $website['website_id']);
+    
+    // Add active class and styling
+    $itemStyle = 'padding: 8px 0;';
+    if ($isActive) {
+        $itemStyle .= ' background: rgba(99, 102, 241, 0.1); border-left: 3px solid var(--accent1); padding-left: 8px; margin-left: -8px; border-radius: 4px;';
+    }
+    
+    echo '<li style="' . $itemStyle . '">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
               <a href="dashboard?website_id=' . htmlspecialchars($website['website_id']) . '" 
-                 style="color: var(--text); text-decoration: none; flex: 1; display: flex; align-items: center;">
-                <i class="fas fa-globe" style="margin-right: 8px; font-size: 0.9em;"></i>
-                <span title="' . htmlspecialchars($website['website_name']) . '">' 
+                 style="color: var(--text); text-decoration: none; flex: 1; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-globe" style="font-size: 0.9em; color: ' . ($isActive ? 'var(--accent1)' : 'inherit') . ';"></i>
+                <span title="' . htmlspecialchars($website['website_name']) . '" style="font-weight: ' . ($isActive ? '600' : '400') . ';">' 
                   . htmlspecialchars($displayName) . 
                 '</span>';
     
- /*  if ($website['tier'] === 'paid') {
-    echo "<span style=\"font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: var(--accent1); color: white; margin-left: 8px;\">
-        {$website['plan_type']}
-    </span>";
-} */
+    // Show active indicator
+    if ($isActive) {
+        echo '<span style="font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: var(--accent1); color: white;">
+                Active
+              </span>';
+    }
+    
+    /* Uncomment to show plan type badge
+    if ($website['tier'] === 'paid') {
+        echo '<span style="font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: var(--accent2); color: white;">
+                ' . htmlspecialchars($website['plan_type']) . '
+              </span>';
+    }
+    */
     
     echo '      </a>
               <div style="display: flex; gap: 8px;">

@@ -24,6 +24,7 @@ $selectedPlan = $_GET['plan'] ?? '';
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/plans.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"/>
+    <script src="https://phantomtrack-cdn.vercel.app/phantom.v1.0.0.js?trackid=track_428e608b90b694c4bee3"></script>
 </head>
 <body data-theme="dark">
 

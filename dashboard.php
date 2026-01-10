@@ -27,6 +27,11 @@ if ($secretKeyToValidate) {
         $hasSecretKey = true;
         $currentSecretKey = $secretKeyToValidate;
         
+        // Set cookie if not already set or if it's different
+        if (!$secretKeyFromCookie || $secretKeyFromCookie !== $secretKeyToValidate) {
+            setcookie(COOKIE_NAME, $secretKeyToValidate, time() + COOKIE_EXPIRY, '/', '', isset($_SERVER['HTTPS']), true);
+        }
+        
         // Check if website_id is in URL
         if (isset($_GET['website_id'])) {
             $requestedWebsiteId = $_GET['website_id'];
@@ -120,10 +125,8 @@ if ($secretKeyToValidate) {
             // If $redirectWebsiteId is null, user has no websites - just let them through
         }
         
-        // Handle secretkey in URL - clean redirect
+        // Handle secretkey in URL - clean redirect (ONLY if secretkey is in URL)
         if ($secretKeyFromURL) {
-            setcookie(COOKIE_NAME, $secretKeyFromURL, time() + COOKIE_EXPIRY, '/', '', isset($_SERVER['HTTPS']), true);
-            
             $urlParts = parse_url($_SERVER['REQUEST_URI']);
             $basePath = $urlParts['path'];
             $queryParams = [];
@@ -149,10 +152,13 @@ if ($secretKeyToValidate) {
         }
         
     } else {
+        // Invalid secret key
         session_unset();
+        setcookie(COOKIE_NAME, '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
         $autoOpenModal = true;
     }
 } else {
+    // No secret key at all
     session_unset();
     $autoOpenModal = true;
 }
@@ -255,7 +261,7 @@ include "header.php";
       if (e.key === 'Escape') closeModal();
     });
     
-    // Handle errors gracefully abeg i no want headache
+    // Handle errors gracefully
     document.body.addEventListener('htmx:responseError', function(event) {
       if (event.detail.target.id === 'modal-content') {
         document.getElementById('modal-content').innerHTML = `
@@ -271,3 +277,4 @@ include "header.php";
     
 </body>
 </html>
+

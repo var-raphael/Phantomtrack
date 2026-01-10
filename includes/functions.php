@@ -156,6 +156,64 @@ function formatTime($seconds) {
 }
 
 
+function sendBrevoEmail($toEmail, $toName, $subject, $htmlContent, $fromEmail = null, $fromName = null) {
+    $apiKey = env('BREVO_API_KEY');
+    
+    if (!$apiKey) {
+        error_log("Brevo: API key not found in environment");
+        return false;
+    }
+    
+    // Default sender (you can customize these)
+    $fromEmail = $fromEmail ?? env('BREVO_SENDER_EMAIL', 'noreply@phantomtrack.com');
+    $fromName = $fromName ?? env('BREVO_SENDER_NAME', 'PhantomTrack');
+    
+    $data = [
+        'sender' => [
+            'name' => $fromName,
+            'email' => $fromEmail
+        ],
+        'to' => [
+            [
+                'email' => $toEmail,
+                'name' => $toName
+            ]
+        ],
+        'subject' => $subject,
+        'htmlContent' => $htmlContent
+    ];
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, 'https://api.brevo.com/v3/smtp/email');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'accept: application/json',
+        'api-key: ' . $apiKey,
+        'content-type: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+    
+    if ($curlError) {
+        error_log("Brevo cURL Error: " . $curlError);
+        return false;
+    }
+    
+    if ($httpCode >= 200 && $httpCode < 300) {
+        error_log("Brevo: Email sent successfully to {$toEmail}");
+        return json_decode($response, true);
+    } else {
+        error_log("Brevo Error: HTTP {$httpCode} - " . $response);
+        return false;
+    }
+}
 
 function jsonResponse($success, $message, $data = []) {
     echo json_encode([

@@ -9,75 +9,88 @@ if (!isset($_SESSION["user_id"])) {
 }
 
 $user_id = $_SESSION["user_id"];
-$website_id = $_SESSION["website_id"];
+$website_id = $_SESSION["website_id"] ?? null;
 
-// Fetch website data
-$website = fetchOne("SELECT * FROM website WHERE website_id = ? AND user_id = ?", [$website_id, $user_id]);
-if (!$website) {
-    die("Website not found");
-}
-
-// Fetch or create API keys
-$api_keys = fetchOne("SELECT * FROM api_key WHERE website_id = ? AND user_id = ?", [$website_id, $user_id]);
-if (!$api_keys) {
-    // Create new API keys
-    $test_key = 'sk_test_' . randomStr(32);
-    $prod_key = 'sk_live_' . randomStr(32);
-    quickInsert('api_key', [
-        'user_id' => $user_id,
-        'website_id' => $website_id,
-        'test_key' => $test_key,
-        'production_key' => $prod_key,
-        'test_key_count' => 0,
-        'production_key_count' => 0
-    ]);
-    $api_keys = fetchOne("SELECT * FROM api_key WHERE website_id = ? AND user_id = ?", [$website_id, $user_id]);
-}
-
-// Fetch monthly usage with limit
-$current_month = date('Y-m');
-$usage = fetchOne(
-    "SELECT event_count, req_limit FROM monthly_usage 
-     WHERE website_id = ? AND month = ?
-     ORDER BY req_limit DESC, usage_id DESC
-     LIMIT 1",
-    [$website_id, $current_month]
-);
-
-$api_calls = $usage ? (int)$usage['event_count'] : 0;
-$req_limit = $usage ? (int)$usage['req_limit'] : 10000;
-
-// Define plan details
-$planDetails = [
-    'free' => ['name' => 'Free Plan', 'price' => '$0', 'limit' => 10000, 'billing' => 'N/A'],
-    'pro' => ['name' => 'Pro Plan', 'price' => '$3', 'limit' => 30000, 'billing' => 'Monthly'],
-    'premium' => ['name' => 'Premium Plan', 'price' => '$5', 'limit' => 60000, 'billing' => 'Monthly'],
-    'enterprise' => ['name' => 'Enterprise Plan', 'price' => '$8', 'limit' => 100000, 'billing' => 'Monthly'],
-    'lifetime' => ['name' => 'Lifetime Plan', 'price' => '$20', 'limit' => 999999999, 'billing' => 'One-time']
-];
-
-$plan_type = $website['plan_type'] ?? 'free';
-$currentPlan = $planDetails[$plan_type] ?? $planDetails['free'];
-
-// Build subscription data
-$subscription = [
-    'plan' => $currentPlan['name'],
-    'status' => $website['subscription_status'] ?? ($website['tier'] === 'paid' ? 'Active' : 'Free'),
-    'price' => $currentPlan['price'],
-    'billing_cycle' => $currentPlan['billing'],
-    'next_billing' => $website['subscription_ends'] ? date('M d', strtotime($website['subscription_ends'])) : 'N/A',
-    'expires' => $website['subscription_ends'] ? date('F d, Y', strtotime($website['subscription_ends'])) : 'N/A',
-    'is_lifetime' => $plan_type === 'lifetime',
-    'has_subscription' => !empty($website['paystack_sub_code']) && strpos($website['paystack_sub_code'], 'lifetime_') !== 0
-];
-
-// Get user data from existing users table
+// Get user data (always needed)
 $user_data = fetchOne("SELECT email, secret_key FROM users WHERE user_id = ?", [$user_id]);
 $user_email = $user_data['email'] ?? "user@phantomtrack.com";
 $user_secret_key = $user_data['secret_key'] ?? '';
 
-// Format limit display
-$limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit);
+// Check if user has any websites
+$has_website = false;
+$website = null;
+$api_keys = null;
+$api_calls = 0;
+$req_limit = 10000;
+$limitDisplay = number_format(10000);
+$currentPlan = null;
+$subscription = null;
+
+if ($website_id) {
+    // Fetch website data
+    $website = fetchOne("SELECT * FROM website WHERE website_id = ? AND user_id = ?", [$website_id, $user_id]);
+    
+    if ($website) {
+        $has_website = true;
+        
+        // Fetch or create API keys
+        $api_keys = fetchOne("SELECT * FROM api_key WHERE website_id = ? AND user_id = ?", [$website_id, $user_id]);
+        if (!$api_keys) {
+            // Create new API keys
+            $test_key = 'sk_test_' . randomStr(32);
+            $prod_key = 'sk_live_' . randomStr(32);
+            quickInsert('api_key', [
+                'user_id' => $user_id,
+                'website_id' => $website_id,
+                'test_key' => $test_key,
+                'production_key' => $prod_key,
+                'test_key_count' => 0,
+                'production_key_count' => 0
+            ]);
+            $api_keys = fetchOne("SELECT * FROM api_key WHERE website_id = ? AND user_id = ?", [$website_id, $user_id]);
+        }
+
+        // Fetch monthly usage with limit
+        $current_month = date('Y-m');
+        $usage = fetchOne(
+            "SELECT event_count, req_limit FROM monthly_usage 
+             WHERE website_id = ? AND month = ?
+             ORDER BY req_limit DESC, usage_id DESC
+             LIMIT 1",
+            [$website_id, $current_month]
+        );
+
+        $api_calls = $usage ? (int)$usage['event_count'] : 0;
+        $req_limit = $usage ? (int)$usage['req_limit'] : 10000;
+
+        // Define plan details
+        $planDetails = [
+            'free' => ['name' => 'Free Plan', 'price' => '$0', 'limit' => 10000, 'billing' => 'N/A'],
+            'pro' => ['name' => 'Pro Plan', 'price' => '$3', 'limit' => 30000, 'billing' => 'Monthly'],
+            'premium' => ['name' => 'Premium Plan', 'price' => '$5', 'limit' => 60000, 'billing' => 'Monthly'],
+            'enterprise' => ['name' => 'Enterprise Plan', 'price' => '$8', 'limit' => 100000, 'billing' => 'Monthly'],
+            'lifetime' => ['name' => 'Lifetime Plan', 'price' => '$20', 'limit' => 999999999, 'billing' => 'One-time']
+        ];
+
+        $plan_type = $website['plan_type'] ?? 'free';
+        $currentPlan = $planDetails[$plan_type] ?? $planDetails['free'];
+
+        // Build subscription data
+        $subscription = [
+            'plan' => $currentPlan['name'],
+            'status' => $website['subscription_status'] ?? ($website['tier'] === 'paid' ? 'Active' : 'Free'),
+            'price' => $currentPlan['price'],
+            'billing_cycle' => $currentPlan['billing'],
+            'next_billing' => $website['subscription_ends'] ? date('M d', strtotime($website['subscription_ends'])) : 'N/A',
+            'expires' => $website['subscription_ends'] ? date('F d, Y', strtotime($website['subscription_ends'])) : 'N/A',
+            'is_lifetime' => $plan_type === 'lifetime',
+            'has_subscription' => !empty($website['paystack_sub_code']) && strpos($website['paystack_sub_code'], 'lifetime_') !== 0
+        ];
+
+        // Format limit display
+        $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -88,8 +101,65 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/settings.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"/>
+    <style>
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+        }
+        .spinner-overlay.active {
+            display: flex;
+        }
+        .spinner-content {
+            text-align: center;
+            color: white;
+        }
+        .spinner-content i {
+            font-size: 48px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+            color: var(--accent1);
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .no-website-banner {
+            background: linear-gradient(135deg, var(--accent1), var(--accent2));
+            color: white;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .no-website-banner h2 {
+            margin: 0 0 8px 0;
+            font-size: 24px;
+        }
+        .no-website-banner p {
+            margin: 0 0 16px 0;
+            opacity: 0.9;
+        }
+    </style>
+    <script src="https://phantomtrack-cdn.vercel.app/phantom.v1.0.0.js?trackid=track_428e608b90b694c4bee3"></script>
 </head>
 <body data-theme="dark">
+
+    <!-- Spinner Overlay -->
+    <div class="spinner-overlay" id="spinnerOverlay">
+        <div class="spinner-content">
+            <i class="fas fa-spinner"></i>
+            <p style="font-size: 18px; font-weight: 500;">Regenerating key...</p>
+            <p style="font-size: 14px; opacity: 0.8;">Please wait, you'll be redirected shortly</p>
+        </div>
+    </div>
 
     <!-- Header -->
     <div class="header">
@@ -105,6 +175,18 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
     <div class="content">
         <div class="settings-container">
 
+            <?php if (!$has_website): ?>
+            <!-- No Website Banner -->
+            <div class="no-website-banner">
+                <h2><i class="fas fa-globe"></i> No Website Found</h2>
+                <p>You need to create a website to access all features. Create one from the dashboard!</p>
+                <button class="btn" onclick="window.location.href='dashboard'" style="background: white; color: var(--accent1);">
+                    <i class="fas fa-plus"></i> Go to Dashboard
+                </button>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($has_website): ?>
             <!-- Current Plan Section -->
             <div class="settings-section">
                 <div class="card-solid">
@@ -260,7 +342,58 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
                 </div>
             </div>
 
-            <!-- Secret Keys Section -->
+            <!-- Website Tracking ID Section -->
+            <div class="settings-section">
+                <div class="card-solid">
+                    <h3><i class="fas fa-code"></i> Website Tracking ID</h3>
+                    
+                    <div class="settings-item" id="tracking-id-section">
+                        <div class="settings-item-content">
+                            <div class="settings-item-title">Tracking ID</div>
+                            <div class="settings-item-desc">Use this ID in your tracking script on your website</div>
+                            <span class="badge badge-info">Public</span>
+                            <div class="api-key-display">
+                                <span class="api-key-text" id="trackingId"><?php echo $website['track_id']; ?></span>
+                                <button class="copy-btn" onclick="copyToClipboard('trackingId')">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-item">
+                        <div class="settings-item-content">
+                            <div class="settings-item-title">Regenerate Tracking ID</div>
+                            <div class="settings-item-desc">Generate a new tracking ID (you'll need to update your website's tracking script).</div>
+                        </div>
+                        <button class="btn-outline btn-sm" onclick="openModal('regenerateTrackingModal')">
+                            <i class="fas fa-sync-alt"></i> Regenerate
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subscription Section -->
+            <?php if ($website['tier'] === 'paid' && $subscription['has_subscription']): ?>
+            <div class="settings-section">
+                <div class="card-solid">
+                    <h3><i class="fas fa-credit-card"></i> Subscription</h3>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-content">
+                            <div class="settings-item-title">Cancel Subscription</div>
+                            <div class="settings-item-desc">Cancel your current subscription plan (does not apply to lifetime plans)</div>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="openModal('cancelModal')">
+                            <i class="fas fa-times-circle"></i> Cancel Plan
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+            <?php endif; // end if has_website ?>
+
+            <!-- Secret Keys Section (Always visible) -->
             <div class="settings-section">
                 <div class="card-solid">
                     <h3><i class="fas fa-key"></i> User Secret Key</h3>
@@ -294,38 +427,7 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
                 </div>
             </div>
 
-            <!-- Website Tracking ID Section -->
-            <div class="settings-section">
-                <div class="card-solid">
-                    <h3><i class="fas fa-code"></i> Website Tracking ID</h3>
-                    
-                    <div class="settings-item" id="tracking-id-section">
-                        <div class="settings-item-content">
-                            <div class="settings-item-title">Tracking ID</div>
-                            <div class="settings-item-desc">Use this ID in your tracking script on your website</div>
-                            <span class="badge badge-info">Public</span>
-                            <div class="api-key-display">
-                                <span class="api-key-text" id="trackingId"><?php echo $website['track_id']; ?></span>
-                                <button class="copy-btn" onclick="copyToClipboard('trackingId')">
-                                    <i class="fas fa-copy"></i> Copy
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="settings-item">
-                        <div class="settings-item-content">
-                            <div class="settings-item-title">Regenerate Tracking ID</div>
-                            <div class="settings-item-desc">Generate a new tracking ID (you'll need to update your website's tracking script).</div>
-                        </div>
-                        <button class="btn-outline btn-sm" onclick="openModal('regenerateTrackingModal')">
-                            <i class="fas fa-sync-alt"></i> Regenerate
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Account Settings -->
+            <!-- Account Settings (Always visible) -->
             <div class="settings-section">
                 <div class="card-solid">
                     <h3><i class="fas fa-user"></i> Account Settings</h3>
@@ -349,26 +451,7 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
                 </div>
             </div>
 
-            <!-- Subscription Section -->
-            <?php if ($website['tier'] === 'paid' && $subscription['has_subscription']): ?>
-            <div class="settings-section">
-                <div class="card-solid">
-                    <h3><i class="fas fa-credit-card"></i> Subscription</h3>
-                    
-                    <div class="settings-item">
-                        <div class="settings-item-content">
-                            <div class="settings-item-title">Cancel Subscription</div>
-                            <div class="settings-item-desc">Cancel your current subscription plan (does not apply to lifetime plans)</div>
-                        </div>
-                        <button class="btn-danger btn-sm" onclick="openModal('cancelModal')">
-                            <i class="fas fa-times-circle"></i> Cancel Plan
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <!-- Support & Info Section -->
+            <!-- Support & Info Section (Always visible) -->
             <div class="settings-section">
                 <div class="card-solid">
                     <h3><i class="fas fa-info-circle"></i> Support & Information</h3>
@@ -408,6 +491,7 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
         </div>
     </div>
 
+    <?php if ($has_website): ?>
     <!-- Regenerate Production Key Modal -->
     <div id="regenerateProdModal" class="modal">
         <div class="modal-content">
@@ -427,41 +511,6 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
                         hx-swap="outerHTML"
                         onclick="closeModal('regenerateProdModal')">
                     <i class="fas fa-sync-alt"></i> Regenerate
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Regenerate User Secret Key Modal -->
-    <div id="regenerateUserSecretModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fas fa-exclamation-triangle"></i> Regenerate User Secret Key</h3>
-            </div>
-            <p style="color: var(--text); opacity: 0.8; line-height: 1.6;">
-                Are you sure you want to regenerate your user secret key? This action cannot be undone and you may need to re-authenticate your account.
-            </p>
-            <div style="padding: 12px; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; border-radius: 4px; margin: 16px 0;">
-                <div style="display: flex; align-items: start; gap: 8px;">
-                    <i class="fas fa-info-circle" style="color: #3b82f6; margin-top: 2px;"></i>
-                    <div style="color: var(--text); font-size: 13px; line-height: 1.5;">
-                        <strong>After regeneration:</strong><br>
-                        • A text file with your new key will automatically download<br>
-                        • You'll be redirected to the dashboard with your new key<br>
-                        • The old key will be immediately invalidated
-                    </div>
-                </div>
-            </div>
-            <div id="regenerate-user-secret-response"></div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeModal('regenerateUserSecretModal')">Cancel</button>
-                <button class="btn" 
-                        hx-post="api/regenerate-key" 
-                        hx-vals='{"key_type": "user_secret"}'
-                        hx-target="#user-secret-key-section"
-                        hx-swap="outerHTML"
-                        onclick="closeModal('regenerateUserSecretModal')">
-                    <i class="fas fa-sync-alt"></i> Regenerate & Download
                 </button>
             </div>
         </div>
@@ -513,6 +562,42 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
             </div>
         </div>
     </div>
+    <?php endif; ?>
+
+    <!-- Regenerate User Secret Key Modal (Always available) -->
+    <div id="regenerateUserSecretModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Regenerate User Secret Key</h3>
+            </div>
+            <p style="color: var(--text); opacity: 0.8; line-height: 1.6;">
+                Are you sure you want to regenerate your user secret key? This action cannot be undone and you may need to re-authenticate your account.
+            </p>
+            <div style="padding: 12px; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; border-radius: 4px; margin: 16px 0;">
+                <div style="display: flex; align-items: start; gap: 8px;">
+                    <i class="fas fa-info-circle" style="color: #3b82f6; margin-top: 2px;"></i>
+                    <div style="color: var(--text); font-size: 13px; line-height: 1.5;">
+                        <strong>After regeneration:</strong><br>
+                        • A text file with your new key will automatically download<br>
+                        • You'll be redirected to the dashboard with your new key<br>
+                        • The old key will be immediately invalidated
+                    </div>
+                </div>
+            </div>
+            <div id="regenerate-user-secret-response"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('regenerateUserSecretModal')">Cancel</button>
+                <button class="btn" 
+                        hx-post="api/regenerate-key" 
+                        hx-vals='{"key_type": "user_secret"}'
+                        hx-target="#user-secret-key-section"
+                        hx-swap="outerHTML"
+                        onclick="regenerateUserSecret()">
+                    <i class="fas fa-sync-alt"></i> Regenerate & Download
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- About Modal -->
     <div id="aboutModal" class="modal">
@@ -526,10 +611,10 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
                 </p>
                 <p style="margin-bottom: 16px;">
                     Version: 1.0.0<br>
-                    Last Updated: December 2025
+                    Last Updated: January 2026
                 </p>
                 <p>
-                    For support, contact us at: <strong style="color: var(--accent1);">support@phantomtrack.com</strong>
+                    For support, contact us at: <strong style="color: var(--accent1);">phantomdev17@gmail.com</strong>
                 </p>
             </div>
             <div class="modal-footer">
@@ -561,12 +646,25 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
             document.getElementById(modalId).classList.remove('active');
         }
 
+        function regenerateUserSecret() {
+            closeModal('regenerateUserSecretModal');
+            showSpinner();
+        }
+
+        function showSpinner() {
+            document.getElementById('spinnerOverlay').classList.add('active');
+        }
+
+        function hideSpinner() {
+            document.getElementById('spinnerOverlay').classList.remove('active');
+        }
+
         function reportBug() {
-            window.open('mailto:support@phantomtrack.com?subject=Bug Report', '_blank');
+            window.open('mailto:phantomdev17@gmail.com?subject=Bug Report - PhantomTrack', '_blank');
         }
 
         function hireMe() {
-            window.open('mailto:hire@phantomtrack.com?subject=Hire Inquiry', '_blank');
+            window.open('mailto:phantomdev17@gmail.com?subject=Hire Inquiry - PhantomTrack', '_blank');
         }
 
         function upgradePlan() {
@@ -577,7 +675,7 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
         }
 
         function openDocs() {
-            window.open('https://docs.phantomtrack.com', '_blank');
+            window.open('https://phantomtrack-docs.vercel.app/docs', '_blank');
         }
 
         function showNotification(message, type = 'info') {
@@ -608,6 +706,34 @@ $limitDisplay = $req_limit >= 999999999 ? 'Unlimited' : number_format($req_limit
                 event.target.classList.remove('active');
             }
         }
+
+        // HTMX event listeners
+        document.body.addEventListener('htmx:beforeRequest', function(event) {
+            // Check if it's a regenerate user secret request
+            const xhr = event.detail.xhr;
+            const requestConfig = event.detail.requestConfig;
+            
+            if (requestConfig && requestConfig.path === 'api/regenerate-key') {
+                const target = event.detail.target;
+                if (target && target.id === 'user-secret-key-section') {
+                    // This is a user secret key regeneration - show spinner
+                    showSpinner();
+                }
+            }
+        });
+
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            // Hide spinner after swap completes
+            if (event.detail.target.id === 'user-secret-key-section') {
+                // Spinner will be hidden by the redirect script in the response
+                // Don't hide it here as we want it to stay visible during redirect
+            }
+        });
+
+        document.body.addEventListener('htmx:responseError', function(event) {
+            hideSpinner();
+            showNotification('Error: ' + (event.detail.error || 'Request failed'), 'error');
+        });
 
         const style = document.createElement('style');
         style.textContent = `

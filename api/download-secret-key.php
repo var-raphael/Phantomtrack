@@ -21,12 +21,9 @@ if (!$user) {
     die('Invalid secret key');
 }
 
-// Get website info
-$website = fetchOne("SELECT website_name, track_id FROM website WHERE website_id = ? AND user_id = ?", [$website_id, $user_id]);
-
-// Create the file content
-$base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'];
-$dashboard_url = $base_url . dirname($_SERVER['PHP_SELF']) . "/../dashboard.php?secretkey=" . urlencode($secret_key);
+// Get dashboard URL from environment
+$base_url = rtrim(env('PHANTOMTRACK_URL'), '/');
+$dashboard_url = $base_url . '/dashboard?secretkey=' . urlencode($secret_key);
 
 $file_content = "═══════════════════════════════════════════════════════════
   PHANTOMTRACK SECRET KEY - CONFIDENTIAL
@@ -46,35 +43,22 @@ DASHBOARD ACCESS
 {$dashboard_url}
 
 ───────────────────────────────────────────────────────────
-ACCOUNT INFORMATION
+ACCOUNT EMAIL
 ───────────────────────────────────────────────────────────
-User ID:       {$user_id}
-Email:         {$user['email']}
-Website:       {$website['website_name']}
-Website ID:    {$website_id}
-Tracking ID:   {$website['track_id']}
-
-───────────────────────────────────────────────────────────
-GENERATED
-───────────────────────────────────────────────────────────
-Date:          " . date('F d, Y') . "
-Time:          " . date('H:i:s T') . "
-Timestamp:     " . date('Y-m-d H:i:s') . "
+{$user['email']}
 
 ───────────────────────────────────────────────────────────
 SECURITY NOTES
 ───────────────────────────────────────────────────────────
 • Never share this key with anyone
-• Do not commit this file to version control (Git, SVN, etc.)
 • Store this file in a secure location
-• Delete this file after saving the key in a password manager
-• If compromised, regenerate immediately from settings page
+• If compromised, contact support immediately
 
 ───────────────────────────────────────────────────────────
 SUPPORT
 ───────────────────────────────────────────────────────────
-Email:         support@phantomtrack.com
-Documentation: https://docs.phantomtrack.com
+Email:         phantomdev17@gmail.com
+Documentation: https://phantomtrack-docs.vercel.app/docs
 
 ═══════════════════════════════════════════════════════════
   © " . date('Y') . " PhantomTrack - All Rights Reserved

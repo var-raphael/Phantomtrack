@@ -30,7 +30,7 @@
         <i class="fas fa-chevron-down" style="margin-left: 5px; font-size: 0.8em;" id="websites-chevron"></i>
         <i class="fas fa-spinner fa-spin htmx-indicator" id="websites-spinner" style="margin-left: 5px; font-size: 0.8em; display: none;"></i>
       </a>
-      <ul id="website-dropdown" style="display: none; padding-left: 30px; margin: 0; list-style: none;">
+      <ul id="website-dropdown" style="display: none; margin: 0; list-style: none;">
         <li style="padding: 8px 0;">
           <button class="btn-outline" 
                   hx-get="api/add-site?type=add"

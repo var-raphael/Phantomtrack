@@ -181,9 +181,15 @@
       margin-top: 24px;
     }
 
-    .sk-save-btn:hover {
+    .sk-save-btn:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .sk-save-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
     }
 
     .sk-toast {
@@ -198,6 +204,7 @@
       display: none;
       animation: skSlideIn 0.3s;
       z-index: 2000;
+      max-width: 400px;
     }
 
     .sk-toast.sk-show {
@@ -250,8 +257,8 @@
           </div>
 
           <div class="sk-form-group">
-            <label>Email (Optional)</label>
-            <input type="email" id="email" name="email" placeholder="your@email.com">
+            <label>Email (Required)</label>
+            <input type="email" id="email" name="email" placeholder="your@email.com" required>
             <div class="sk-help-text">
               The email will be used to send you your secret link in case you lost it.
             </div>
@@ -338,12 +345,8 @@
       currentSecretKey = generateSecretKey();
       secretKeyInput.value = currentSecretKey;
       
-      // Create dashboard link
-      // *** SPACE FOR QUERY INSERTION ***
-      // You can add additional query parameters here
-      // Example: currentDashboardLink = `dashboard?secretkey=${currentSecretKey}&referrer=modal&timestamp=${Date.now()}`;
-      currentDashboardLink = `<?php echo $url; ?>/dashboard?secretkey=${currentSecretKey}`;
-      // *** END QUERY INSERTION SPACE ***
+      
+      currentDashboardLink = `dashboard?secretkey=${currentSecretKey}`;
       
       dashboardLinkDisplay.textContent = currentDashboardLink;
       
@@ -359,7 +362,7 @@
 
     function copySecretKey() {
       navigator.clipboard.writeText(currentSecretKey).then(() => {
-        showToast('Secret key copied to clipboard!');
+        showToast(' Secret key copied to clipboard!');
       });
     }
 
@@ -377,29 +380,39 @@
 
     function downloadLinkManually() {
       downloadLinkFile(currentDashboardLink);
-      showToast('Dashboard link downloaded!');
+      showToast(' Dashboard link downloaded!');
     }
 
-    function showToast(message) {
+    function showToast(message, type = 'success') {
       const toast = document.getElementById('toast');
       toast.textContent = message;
       toast.classList.add('sk-show');
+      
+      // Change color based on type
+      if (type === 'error') {
+        toast.style.background = '#ef4444'; // Red for errors
+      } else {
+        toast.style.background = '#6366f1'; // Default blue/purple
+      }
+      
       setTimeout(() => {
         toast.classList.remove('sk-show');
-      }, 3000);
+      }, type === 'error' ? 5000 : 3000); // Show errors for 5 seconds
     }
 
     // Handle form submission
     document.getElementById('secretKeyForm').addEventListener('submit', function(e) {
       e.preventDefault();
       const email = document.getElementById('email').value;
+      const submitBtn = e.target.querySelector('.sk-save-btn');
+      
+      // Disable button and show loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
       
       // Save secret key to localStorage as backup
       saveToLocalStorage('user_secret_key', currentSecretKey);
       saveToLocalStorage('user_email', email);
-      
-      // Automatically download the link when saving
-      downloadLinkFile(currentDashboardLink);
       
       // Send data to backend to save in database AND set cookie
       const formData = new FormData();
@@ -413,18 +426,31 @@
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          showToast('Secret key saved and link downloaded!');
+          // Automatically download the link when saving
+          downloadLinkFile(currentDashboardLink);
+          
+          showToast(' ' + (data.message || 'Secret key saved and link downloaded!'));
+          
           setTimeout(() => {
             // Redirect to dashboard with secret key (this will set the cookie)
             window.location.href = currentDashboardLink;
           }, 1500);
         } else {
-          alert(data.message || 'Error saving secret key');
+          // Show error message
+          showToast(' ' + (data.message || 'Error saving secret key'), 'error');
+          
+          // Re-enable button
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save';
         }
       })
       .catch(error => {
         console.error('Error:', error);
-        alert('Error saving secret key. Please try again.');
+        showToast('Network error. Please check your connection and try again.', 'error');
+        
+        // Re-enable button
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save';
       });
     });
 
