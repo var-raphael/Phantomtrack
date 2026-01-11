@@ -107,6 +107,77 @@ if ($trackId !== $websiteInfo['track_id']) {
     exit;
 }
 
+// ===========================================
+// ORIGIN VERIFICATION - PREVENT UNAUTHORIZED USAGE
+// ===========================================
+
+// Get the origin/referer from the request
+$requestOrigin = '';
+$requestReferer = '';
+
+// Try to get origin from headers (most reliable)
+if (isset($_SERVER['HTTP_ORIGIN'])) {
+    $requestOrigin = $_SERVER['HTTP_ORIGIN'];
+} elseif (isset($_SERVER['HTTP_REFERER'])) {
+    $requestReferer = $_SERVER['HTTP_REFERER'];
+    // Extract origin from referer
+    $parsed = parse_url($requestReferer);
+    if ($parsed && isset($parsed['scheme']) && isset($parsed['host'])) {
+        $requestOrigin = $parsed['scheme'] . '://' . $parsed['host'];
+        if (isset($parsed['port']) && !in_array($parsed['port'], [80, 443])) {
+            $requestOrigin .= ':' . $parsed['port'];
+        }
+    }
+}
+
+// If no origin/referer, check if it's from page_url in the payload
+if (empty($requestOrigin) && isset($data['page_url'])) {
+    $parsed = parse_url($data['page_url']);
+    if ($parsed && isset($parsed['scheme']) && isset($parsed['host'])) {
+        $requestOrigin = $parsed['scheme'] . '://' . $parsed['host'];
+        if (isset($parsed['port']) && !in_array($parsed['port'], [80, 443])) {
+            $requestOrigin .= ':' . $parsed['port'];
+        }
+    }
+}
+
+// Normalize the authorized website URL
+$authorizedWebsite = normalizeWebsiteUrl($websiteName);
+
+// Verify the origin matches the authorized website
+if (!empty($requestOrigin) && !empty($authorizedWebsite)) {
+    $normalizedRequestOrigin = normalizeWebsiteUrl($requestOrigin);
+    
+    if ($normalizedRequestOrigin !== $authorizedWebsite) {
+        http_response_code(403);
+        echo json_encode([
+            'error' => 'Unauthorized origin',
+            'message' => 'This tracking ID can only be used on ' . $authorizedWebsite,
+            'detected_origin' => $normalizedRequestOrigin
+        ]);
+        error_log("Security: Unauthorized origin detected. Expected: {$authorizedWebsite}, Got: {$normalizedRequestOrigin}, Website ID: {$websiteId}");
+        exit;
+    }
+}
+
+// Additional check: If we have page_url, verify its domain matches
+if (isset($data['page_url']) && !empty($data['page_url'])) {
+    $pageUrlDomain = extractDomain($data['page_url']);
+    $authorizedDomain = extractDomain($authorizedWebsite);
+    
+    if (!empty($pageUrlDomain) && !empty($authorizedDomain) && $pageUrlDomain !== $authorizedDomain) {
+        http_response_code(403);
+        echo json_encode([
+            'error' => 'Domain mismatch',
+            'message' => 'Page URL domain does not match authorized website',
+            'authorized' => $authorizedDomain,
+            'detected' => $pageUrlDomain
+        ]);
+        error_log("Security: Domain mismatch. Expected: {$authorizedDomain}, Got: {$pageUrlDomain}, Website ID: {$websiteId}");
+        exit;
+    }
+}
+
 // ============================================
 // AUTOMATIC MONTH ROLLOVER & USAGE CHECK
 // ============================================
@@ -280,6 +351,69 @@ if (rand(1, 20) === 1) {
 }
 
 exit;
+
+// ============= ORIGIN VERIFICATION HELPER FUNCTIONS =============
+
+/**
+ * Normalize website URL for comparison
+ * Converts various formats to a standard scheme://domain format
+ */
+function normalizeWebsiteUrl($url) {
+    if (empty($url)) {
+        return '';
+    }
+    
+    // Remove whitespace
+    $url = trim($url);
+    
+    // If no scheme, add https://
+    if (!preg_match('#^https?://#i', $url)) {
+        $url = 'https://' . $url;
+    }
+    
+    // Parse the URL
+    $parsed = parse_url($url);
+    
+    if (!$parsed || !isset($parsed['host'])) {
+        return '';
+    }
+    
+    // Remove www. for consistency
+    $host = preg_replace('/^www\./i', '', $parsed['host']);
+    
+    // Build normalized URL (scheme + host, no port for 80/443)
+    $scheme = isset($parsed['scheme']) ? strtolower($parsed['scheme']) : 'https';
+    $normalized = $scheme . '://' . strtolower($host);
+    
+    // Add port if non-standard
+    if (isset($parsed['port'])) {
+        if (($scheme === 'http' && $parsed['port'] != 80) || 
+            ($scheme === 'https' && $parsed['port'] != 443)) {
+            $normalized .= ':' . $parsed['port'];
+        }
+    }
+    
+    return $normalized;
+}
+
+/**
+ * Extract just the domain from a URL
+ */
+function extractDomain($url) {
+    if (empty($url)) {
+        return '';
+    }
+    
+    $normalized = normalizeWebsiteUrl($url);
+    $parsed = parse_url($normalized);
+    
+    if (!$parsed || !isset($parsed['host'])) {
+        return '';
+    }
+    
+    // Remove www. for consistency
+    return preg_replace('/^www\./i', '', strtolower($parsed['host']));
+}
 
 // ============= AUTOMATIC MONTH ROLLOVER =============
 
